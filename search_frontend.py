@@ -85,34 +85,26 @@ def search():
     if len(query) == 0:
       return jsonify(res)
     # BEGIN SOLUTION
-    tokens = tokenize(query)
-    if not tokens:
-        return jsonify(res)
-
+    tokens = [t.lower() for t in tokenize(query)]
     scores = defaultdict(float)
     for token in tokens:
         if token in index_title.df:
-            pl = get_posting_list(index_title, token, bucket_name)
-            for doc_id, tf in pl:
-                scores[doc_id] += 5.0
+            try:
+                pl = get_posting_list(index_title, token, bucket_name)
+                for doc_id, tf in pl:
+                    scores[int(doc_id)] += 1000.0
+            except:
+                continue
         if token in index_body.df:
-            pl = get_posting_list(index_body, token, bucket_name)
-            for doc_id, tf in pl:
-                scores[doc_id] += (1 + math.log10(tf)) * 1.0
+            try:
+                pl = get_posting_list(index_body, token, bucket_name)
+                for doc_id, tf in pl:
+                    scores[int(doc_id)] += (1 + math.log10(tf))
+            except:
+                continue
 
-    if not scores:
-        return jsonify(res)
-
-    final_scores = []
-    for doc_id, base_score in scores.items():
-        pr = pagerank_dict.get(doc_id, 0)
-        pv = pageviews_dict.get(doc_id, 0)
-        popularity_boost = (1 + math.log10(pv + 1)) * (1 + pr)
-        total_score = base_score * popularity_boost
-        final_scores.append((doc_id, total_score))
-
-    sorted_results = sorted(final_scores, key=lambda x: x[1], reverse=True)[:100]
-    res = [(str(doc_id), id_title_dict.get(doc_id, "Title not found")) for doc_id, score in sorted_results]
+    sorted_res = sorted(scores.items(), key=lambda x: x[1], reverse=True)[:100]
+    res = [(str(doc_id), str(id_title_dict.get(doc_id, f"ID:{doc_id}"))) for doc_id, _ in sorted_res]
     # END SOLUTION
     return jsonify(res)
 
@@ -138,6 +130,7 @@ def search_body():
       return jsonify(res)
     # BEGIN SOLUTION
     tokens = tokenize(query)
+
     query_counts = Counter(tokens)
     scores = defaultdict(float)
     query_norm_sq = 0
@@ -296,6 +289,9 @@ def get_pageview():
     # END SOLUTION
     return jsonify(res)
 
+def run(**options):
+    app.run(**options)
+    
 if __name__ == '__main__':
     # run the Flask RESTful API, make the server publicly available (host='0.0.0.0') on port 8080
     app.run(host='0.0.0.0', port=8080, debug=True)
